@@ -1,0 +1,413 @@
+---
+title: "Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
+    theme: cosmo
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(readr)
+library(highcharter)
+library(dplyr)
+#Prepare the data for visualization
+
+CustomerData = read.csv("Online Retail.csv", stringsAsFactors = TRUE)
+names(CustomerData)[1] = "InvoiceNo"
+
+#Create a new column called Total cost
+CustomerData$Cost = CustomerData$UnitPrice * CustomerData$Quantity
+
+#convert date columns
+library(lubridate)
+
+#Work on the date column to have Month and Season
+CustomerData$InvoiceDate = dmy_hm(CustomerData$InvoiceDate)
+CustomerData$hour = format(as.POSIXct(CustomerData$InvoiceDate,format="%H:%M:%S"),"%H")
+CustomerData$MoSold = format(as.POSIXct(CustomerData$InvoiceDate,format="%y:%m:%d"),"%m")
+CustomerData$MoSold = as.numeric(CustomerData$MoSold)
+#season
+CustomerData$seasons = ifelse(CustomerData$MoSold == 3|CustomerData$MoSold == 4 |CustomerData$MoSold == 5,"Spring",
+                  ifelse( CustomerData$MoSold == 6|CustomerData$MoSold == 7 |CustomerData$MoSold == 8,"Summer",
+                    ifelse(CustomerData$MoSold == 9|CustomerData$MoSold == 10 |CustomerData$MoSold == 11,"Autumn",
+                         ifelse(CustomerData$MoSold == 12|CustomerData$MoSold == 01 |CustomerData$MoSold == 2,"Winter",0))))
+
+CustomerData$Quantity[CustomerData$Quantity <= 0] = NA
+CustomerData$UnitPrice[CustomerData$UnitPrice <= 0]= NA
+
+str(CustomerData)
+
+#Make factor mosold seasons and hour
+CustomerData[,c(10:12)] <- lapply(CustomerData[,c(10:12)], factor)
+
+#where are the Missing values
+library(VIM)
+sum(is.na(CustomerData))#148221
+ 
+Missness = data.frame(colMeans(is.na(CustomerData))) #only customerID is missing and theres no way to get it so we can represent them as 00000
+x = CustomerData
+y = CustomerData
+x$CustomerID[is.na(x$CustomerID)] = "00000" 
+x$CustomerID = as.factor(x$CustomerID)
+
+#remove other
+x = na.omit(x)
+
+#create sentiment score
+x$Sentiment_score = sample(c(2,4,6,8,10),530104,rep = TRUE,prob = c(0.01, 0.04, 0.04,0.04,0.87))
+
+#create rfm score of each customer
+#install.packages("rfm")
+library(dplyr)
+#remove all data with 00000
+y = na.omit(y)
+y$order_date = as_date(y$InvoiceDate, tz = "UTC") 
+analysis_date = as_date("2012-01-01", tz = "UTC")
+df_RFM = y %>%
+      group_by(CustomerID) %>%
+      summarise(Recency = as.numeric(analysis_date - max(order_date)), Frequency = n_distinct(InvoiceNo), Monetary_Value = round (sum(Cost),2))
+
+#bring country of each customer
+x3 = match(df_RFM$CustomerID,y$CustomerID)
+ix3= y[x3,]
+df_RFM$Country = ix3$Country
+summary(df_RFM)
+df_RFM = df_RFM[-1,]
+
+#create a score for each of the customers
+#R_score
+df_RFM$R_Score = NA
+df_RFM$R_Score[df_RFM$Recency>164.8]<-1
+df_RFM$R_Score[df_RFM$Recency>73 & df_RFM$Recency<=164.8 ]<-2
+df_RFM$R_Score[df_RFM$Recency>40 & df_RFM$Recency<=73 ]<-3
+df_RFM$R_Score[df_RFM$Recency<=40]<-4
+
+#F_score
+df_RFM$F_Score = NA
+df_RFM$F_Score[df_RFM$Frequency<1]<-1
+df_RFM$F_Score[df_RFM$Frequency>=1 & df_RFM$Frequency<2]<-2
+df_RFM$F_Score[df_RFM$Frequency>=2 & df_RFM$Frequency<5 ]<-3
+df_RFM$F_Score[df_RFM$Frequency>=5]<-4
+
+#M_score
+df_RFM$M_Score = NA
+df_RFM$M_Score[df_RFM$Monetary_Value<= 307.42]<-1
+df_RFM$M_Score[df_RFM$Monetary_Value>=307.42 & df_RFM$Monetary_Value<674.49]<-2
+df_RFM$M_Score[df_RFM$Monetary_Value>=674.49 & df_RFM$Monetary_Value<1661.74 ]<-3
+df_RFM$M_Score[df_RFM$Monetary_Value>=1661.74]<-4
+
+#RFM_score
+df_RFM<- df_RFM %>% mutate(RFM_Score = 100*R_Score + 10*F_Score+M_Score)
+
+#classify them into segments
+df_RFM$segmentRFM<- ifelse(df_RFM$RFM_Score == 444, "Champions",
+                           ifelse(df_RFM$RFM_Score == 334 |df_RFM$RFM_Score == 342 |df_RFM$RFM_Score == 343 |df_RFM$RFM_Score == 344 |df_RFM$RFM_Score == 433 |df_RFM$RFM_Score == 434 |df_RFM$RFM_Score == 443,"Loyal_Customers",
+                                  ifelse(df_RFM$RFM_Score == 332 |df_RFM$RFM_Score == 333 |df_RFM$RFM_Score == 341 |df_RFM$RFM_Score == 412 |df_RFM$RFM_Score == 413 |df_RFM$RFM_Score == 414 |df_RFM$RFM_Score == 431|df_RFM$RFM_Score == 432 |df_RFM$RFM_Score == 441 |df_RFM$RFM_Score == 442 |df_RFM$RFM_Score == 421|df_RFM$RFM_Score == 422 |df_RFM$RFM_Score == 423 |df_RFM$RFM_Score == 424,"Potential_Loyalist",
+                                         ifelse(df_RFM$RFM_Score == 411, "Recent_Customers",
+                                                ifelse(df_RFM$RFM_Score == 311 |df_RFM$RFM_Score == 312 |df_RFM$RFM_Score == 313 |df_RFM$RFM_Score == 331,"Promising",
+                                                       ifelse(df_RFM$RFM_Score == 212 |df_RFM$RFM_Score == 213 |df_RFM$RFM_Score == 214 |df_RFM$RFM_Score == 231 |df_RFM$RFM_Score == 232 |df_RFM$RFM_Score == 233 |df_RFM$RFM_Score == 241|df_RFM$RFM_Score == 314 |df_RFM$RFM_Score == 321 |df_RFM$RFM_Score == 322 |df_RFM$RFM_Score == 323|df_RFM$RFM_Score == 324,"Needing_Attention",
+                                                              ifelse(df_RFM$RFM_Score == 211,"About_to_Sleep",
+                                                                     ifelse(df_RFM$RFM_Score == 112 |df_RFM$RFM_Score == 113 |df_RFM$RFM_Score == 114 |df_RFM$RFM_Score == 131 |df_RFM$RFM_Score == 132 |df_RFM$RFM_Score == 133 |df_RFM$RFM_Score == 142|df_RFM$RFM_Score == 124 |df_RFM$RFM_Score == 123 |df_RFM$RFM_Score == 122 |df_RFM$RFM_Score == 121|df_RFM$RFM_Score == 224|df_RFM$RFM_Score == 223 |df_RFM$RFM_Score == 222 |df_RFM$RFM_Score == 221,"At_Risk",
+                                                                            ifelse(df_RFM$RFM_Score == 134 |df_RFM$RFM_Score == 143 |df_RFM$RFM_Score == 144 |df_RFM$RFM_Score == 234 |df_RFM$RFM_Score == 242 |df_RFM$RFM_Score == 243 |df_RFM$RFM_Score == 244,"Can't_Lose",
+                                                                                   ifelse(df_RFM$RFM_Score == 141,"Hibernating",
+                                                                                          ifelse(df_RFM$RFM_Score == 111,"Lost","UN")))))))))))
+which(df_RFM$segmentRFM == "UN")
+sum(is.na(df_RFM))
+
+#check the amount earned in each country
+df1 = x %>%
+  group_by(Country) %>%
+summarise(Amount = sum(Cost))
+
+#arrange df1  
+df1 = df1 %>%
+  arrange(desc(Amount))
+
+```
+
+Overview {data-orientation=rows data-icon="fa-bar-chart"}
+=====================================
+
+## Row 1 {data-height=110}
+
+### Number of Customers
+
+```{r}
+valueBox(4973, icon = "fa-ship", color="rgb(100,100,100)")
+```
+
+### Number of Countries
+
+```{r}
+valueBox(38, icon = "fa-heart", color="rgb(200,100,100)")
+```
+
+### Turnover
+
+```{r}
+valueBox("$10.7B", icon = "fa-life-ring",color="rgb(26,110,204)")
+```
+    
+
+## Row 2 {data-height=400}  
+
+### Sales over the years
+    
+```{r}
+# Libraries
+library(ggplot2)
+library(dplyr)
+library(plotly)
+library(hrbrthemes)
+sum(x$Cost)
+
+# Load dataset from github
+salesday = x[,c("InvoiceDate","Cost")]
+salesday$InvoiceDate = as.Date(salesday$InvoiceDate)
+salesday = salesday %>%
+  group_by(InvoiceDate) %>% 
+  summarise(Cost = sum(Cost))
+
+# Usual area chart
+p <- salesday %>%
+  ggplot( aes(x=InvoiceDate, y=Cost)) +
+    geom_area(fill="#69b3a2", alpha=0.5) +
+    geom_line(color="#69b3a2") +
+    ylab("Sales") +
+    theme_ipsum()
+
+# Turn it interactive with ggplotly
+p <- ggplotly(p)
+p
+
+```
+    
+
+
+## Row 3 {data-height=400}  
+
+### Sales by Country
+
+```{r}
+dfC <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_world_gdp_with_codes.csv')
+dfC$GDP..BILLIONS.= NULL
+
+xMap = x
+sum(is.na(xMap))
+xMap$Country[xMap$Country == "Unspecified"] = NA
+xMap = na.omit(xMap)
+
+x5 = match(xMap$Country,dfC$COUNTRY)
+ix5 = dfC[x5,]
+xMap$CODE =ix5$CODE 
+sum(is.na(xMap$CODE))
+
+df = xMap[,c("Country","Cost","CODE")]
+df = df %>%
+  group_by(CODE, Country)%>%
+  summarise(Amount = sum(Cost))
+
+# light grey boundaries
+l <- list(color = toRGB("grey"), width = 0.5)
+
+# specify map projection/options
+g <- list(
+  showframe = FALSE,
+  showcoastlines = FALSE,
+  projection = list(type = 'Mercator')
+)
+
+fig <- plot_geo(df)
+fig <- fig %>% add_trace(
+    z = ~Amount, color = ~Amount, colorscale = 'Viridis',
+    text = ~Country, locations = ~CODE
+  )
+fig <- fig %>% colorbar(title = 'Sales')
+fig <- fig %>% layout(
+    geo = g
+  )
+
+fig
+```   
+
+### Sales per Season
+    
+```{r}
+#Amount Realized per season
+x1 = x[x$Country == "United Kingdom",]
+x2 = x[x$Country == "Netherlands",]
+x3 = x[x$Country == "EIRE",]
+
+aX4 = rbind(x1,x2,x3)
+
+tmpS <- x %>%  group_by(seasons) %>% summarize(Amount = mean(Cost))
+tmpS$colors <- c("#d35400", "#2980b9", "#2ecc71","#ffd700")
+hchart(tmpS, "column", hcaes(x = seasons, y = Amount, color=colors)) %>% 
+    hc_tooltip(pointFormat = "{point.y:.2f}</br>",shared = FALSE)
+```
+
+
+United Kingdom {data-icon="fa-area-chart"}
+=====================================  
+
+
+Column {data-width=450}
+-------------------------------------
+
+### Quantity of Goods Sold
+```{r}
+
+tmp <- x1 %>% filter(!(seasons=="")) %>% group_by(seasons) %>% tally() %>% mutate(Percent = n/sum(n))
+tmp$colors <- c("#d35400", "#2980b9", "#2ecc71","#ffd700")
+tmp <- arrange(tmp,desc(Percent))
+highchart() %>%
+  hc_xAxis(categories = c("Autumn", "Winter", "Summer","Spring")) %>%
+  hc_yAxis(title=list(text='Percentage')) %>%
+  hc_chart(inverted = TRUE)%>%
+  hc_add_series(tmp, "bar", hcaes(x = seasons, y = Percent, color=colors)) %>% 
+  hc_tooltip(pointFormat = "{point.y:.2f}</br>",shared = FALSE) %>% 
+  hc_legend(enabled=FALSE)
+
+```
+
+### Rating
+
+```{r}
+
+
+## Average sentiment
+##count of rating
+Rating = plyr::count(x1$Sentiment_score)
+gg.gauge <- function(pos,breaks=c(0,20,40,60,80,100)) {
+  require(ggplot2)
+  get.poly <- function(a,b,r1=0.5,r2=1.0) {
+    th.start <- pi*(1-a/100)
+    th.end   <- pi*(1-b/100)
+    th       <- seq(th.start,th.end,length=100)
+    x        <- c(r1*cos(th),rev(r2*cos(th)))
+    y        <- c(r1*sin(th),rev(r2*sin(th)))
+    return(data.frame(x,y))
+  }
+  ggplot()+ 
+    geom_polygon(data=get.poly(breaks[1],breaks[2]),aes(x,y),fill="yellow1")+
+    geom_polygon(data=get.poly(breaks[2],breaks[3]),aes(x,y),fill="yellow2")+
+    geom_polygon(data=get.poly(breaks[3],breaks[4]),aes(x,y),fill="yellow3")+
+    geom_polygon(data=get.poly(breaks[4],breaks[5]),aes(x,y),fill="yellowgreen")+
+    geom_polygon(data=get.poly(breaks[5],breaks[6]),aes(x,y),fill="forestgreen")+
+    geom_polygon(data=get.poly(pos-1,pos+1,0.2),aes(x,y))+
+    geom_text(data=as.data.frame(breaks), size=5, fontface="bold", vjust=0,
+              aes(x=1.1*cos(pi*(1-breaks/100)),y=1.1*sin(pi*(1-breaks/100)),label=paste0(breaks,"%")))+
+    annotate("text",x=0,y=0,label=paste0(pos,"%"),vjust=0,size=8,fontface="bold")+
+    coord_fixed()+
+    theme_bw()+
+    theme(axis.text=element_blank(),
+          axis.title=element_blank(),
+          axis.ticks=element_blank(),
+          panel.grid=element_blank(),
+          panel.border=element_blank()) 
+}
+gg.gauge(87,breaks=c(0,20,40,60,80,100))
+
+```
+
+
+    
+### Number of Customers per Season by Sales 
+    
+```{r}
+
+#Number of customers per season with amount realised
+# Library
+library(fmsb)
+#install.packages("fmsb")
+ monet = x1 %>%
+   group_by(hour,seasons)%>%
+   summarise(Amount = sum(Cost))
+ 
+ Aut = monet%>%
+      filter(seasons == "Autumn")
+Win = monet%>%
+      filter(seasons == "Winter")
+Sum = monet%>%
+      filter(seasons == "Summer")
+Spr = monet%>%
+      filter(seasons == "Spring")
+ 
+# Create data: note in High school for Jonathan:
+monet1 = as.data.frame(matrix( sample(2:20 , 15 , replace=T) , ncol=15))
+colnames(monet1) = unique(monet$hour)
+monet1[1,] = NA
+monet1[2,] = NA
+monet1[3,] = NA
+monet1[4,] = NA
+row.names(monet1) = unique(monet$seasons)
+monet1[2,][2:15] = Aut$Amount[1:14] 
+monet1[4,][2:15] = Win$Amount[1:14]
+monet1[1,][1:15] = Sum$Amount[1:15]
+monet1[3,][2:15] = Spr$Amount[1:14]
+monet1$`06`[is.na(monet1$`06`)] = 0
+
+# To use the fmsb package, I have to add 2 lines to the dataframe: the max and min of each topic to show on the plot!
+monet1 = rbind(rep(500000,15) , rep(0,15) , monet1)
+  monet1[c(1,3:6),] = round(monet1[c(1,3:6),]/10000,2)
+# Check your data, it has to look like this!
+# head(data)
+
+# Color vector
+colors_border=c( rgb(0.2,0.5,0.5,0.9), rgb(0.8,0.2,0.5,0.9) , rgb(0.7,0.5,0.1,0.9) )
+colors_in=c( rgb(0.2,0.5,0.5,0.4), rgb(0.8,0.2,0.5,0.4) , rgb(0.7,0.5,0.1,0.4) )
+
+# plot with default options:
+radarchart(monet1  , axistype=1 , 
+    #custom polygon
+    pcol=colors_border , pfcol=colors_in , plwd=4 , plty=1,
+    #custom the grid
+    cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,50,5), cglwd=0.8,
+    #custom labels
+    vlcex=0.8 
+    )
+# Add a legend
+legend(x=0.7, y=1, legend = rownames(monet1[-c(1,2),]), bty = "n", pch=20 , col=colors_in , text.col = "grey", cex=1.2, pt.cex=3)
+
+```
+   
+Column {data-width=450}
+-------------------------------------
+
+### Probability of Sales per Season 
+
+```{r}
+## Probability of sales per season
+UKtable = as.data.frame(table(x1$seasons))
+UKtable$Prob = UKtable$Freq / sum(UKtable$Freq)
+colnames(UKtable) = c("SPS", "Freq", "Prob" )
+ggplot(UKtable, aes(x="", y=Prob, fill=SPS)) +
+  geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) + 
+  labs(title = "Pie Chart of SPS in the UK", y = "Probability")
+
+```
+
+### Top 10 Products Sold
+
+```{r}
+## Top 10 products sold
+df_order <- x1 %>%
+            arrange(desc(Quantity))
+df_order = df_order[,3:4]
+df_order = df_order[1:12,]
+df_order = df_order[-c(4,7),]
+df_order$type = c(1:10)
+df_order$type = as.factor(df_order$type)
+
+
+df_order %>%
+arrange(desc(Quantity)) %>%
+    slice(1:10) %>%
+    ggplot(., aes(x=type, y=Quantity, fill = Description))+
+              geom_bar(stat='identity')
+
+```   
+
