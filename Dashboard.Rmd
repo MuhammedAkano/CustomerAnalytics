@@ -131,13 +131,13 @@ Overview {data-orientation=rows data-icon="fa-bar-chart"}
 
 ## Row 1 {data-height=110}
 
-### Number of Customers
+### Customers
 
 ```{r}
 valueBox(4373, icon = "fa-ship", color="rgb(100,100,100)")
 ```
 
-### Number of Countries
+### Countries
 
 ```{r}
 valueBox(37, icon = "fa-heart", color="rgb(200,100,100)")
@@ -152,7 +152,7 @@ valueBox("$9.7M", icon = "fa-life-ring",color="rgb(26,110,204)")
 
 ## Row 2 {data-height=400}  
 
-### Sales over the years
+### Sales grew steadily and peaked in Dec. 2011  
     
 ```{r}
 # Libraries
@@ -186,7 +186,7 @@ p
 
 ## Row 3 {data-height=400}  
 
-### Sales by Country
+### United Kingdom recorded the highest sales
 
 ```{r}
 dfC <- read.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_world_gdp_with_codes.csv')
@@ -229,7 +229,7 @@ fig <- fig %>% layout(
 fig
 ```   
 
-### Sales per Season
+### Slight difference in sales across seasons
     
 ```{r}
 #Amount Realized per season
@@ -253,7 +253,7 @@ United Kingdom {data-icon="fa-area-chart"}
 Column {data-width=450}
 -------------------------------------
 
-### Quantity of Goods Sold
+### Over a third of total goods was sold in Autumn
 ```{r}
 
 tmp <- x1 %>% filter(!(seasons=="")) %>% group_by(seasons) %>% tally() %>% mutate(Percent = n/sum(n))
@@ -269,7 +269,7 @@ highchart() %>%
 
 ```
 
-### Rating
+### Average user rating was 4.4/5.0 
 
 ```{r}
 
@@ -310,8 +310,7 @@ gg.gauge(87,breaks=c(0,20,40,60,80,100))
 ```
 
 
-    
-### Number of Customers per Season by Sales 
+### Most of the customers in Autumn made purchases between 10am and 3pm 
     
 ```{r}
 
@@ -373,7 +372,7 @@ legend(x=0.7, y=1, legend = rownames(monet1[-c(1,2),]), bty = "n", pch=20 , col=
 Column {data-width=450}
 -------------------------------------
 
-### Probability of Sales per Season 
+### There is a 4% chance of making sales in Autumn than in Winter
 
 ```{r}
 ## Probability of sales per season
@@ -384,24 +383,28 @@ ggplot(UKtable, aes(x="", y=Prob, fill=SPS)) +
   geom_bar(width = 1, stat = "identity") + coord_polar("y", start=0) 
 ```
 
-### Top 10 Products Sold
+### A paper craft product was the most purchased good
 
 ```{r}
-## Top 10 products sold
 df_order <- x1 %>%
             arrange(desc(Quantity))
+
 df_order = df_order[,3:4]
-df_order = df_order[1:12,]
-df_order = df_order[-c(4,7),]
+df_order = df_order %>%
+  group_by(Description) %>%
+  summarise(Quantity = sum(Quantity)) %>%
+  arrange(desc(Quantity))
+df_order = df_order[1:10,]
 df_order$type = c(1:10)
 df_order$type = as.factor(df_order$type)
 
-
+library(ggplot2)
 df_order %>%
 arrange(desc(Quantity)) %>%
     slice(1:10) %>%
     ggplot(., aes(x=type, y=Quantity, fill = Description))+
               geom_bar(stat='identity')
+
 ```
 
 
@@ -411,14 +414,14 @@ Netherlands {data-icon="fa-area-chart"}
 Column {data-width=450}
 -------------------------------------
 
-### Quantity of Goods Sold
+### There is a 4% difference between the total goods sold in Winter and Summer
 ```{r}
 
 NEtmp <- x2 %>% filter(!(seasons=="")) %>% group_by(seasons) %>% tally() %>% mutate(Percent = n/sum(n))
-NEtmp$colors <- c("#d35400", "#2980b9", "#2ecc71","#ffd700")
+NEtmp$colors <- c("#d35400", "#2ecc71","#2980b9", "#ffd700")
 NEtmp <- arrange(NEtmp,desc(Percent))
 highchart() %>%
-  hc_xAxis(categories = c("Autumn", "Winter", "Summer","Spring")) %>%
+  hc_xAxis(categories = c("Autumn", "Summer", "Winter","Spring")) %>%
   hc_yAxis(title=list(text='Percentage')) %>%
   hc_chart(inverted = TRUE)%>%
   hc_add_series(NEtmp, "bar", hcaes(x = seasons, y = Percent, color=colors)) %>% 
@@ -427,7 +430,7 @@ highchart() %>%
 
 ```
 
-### Rating
+### Average user Rating was 4.6/5
 ```{r}
 NERating = plyr::count(x2$Sentiment_score)
 gg.gauge(92,breaks=c(0,20,40,60,80,100))
@@ -435,7 +438,7 @@ gg.gauge(92,breaks=c(0,20,40,60,80,100))
 ```
 
     
-### Number of Customers per Season by Sales 
+### Customers only made purchases across the seasons between 8am and 5pm
     
 ```{r}
 
@@ -500,7 +503,7 @@ legend(x=0.7, y=1, legend = rownames(NEmonet1[-c(1,2),]), bty = "n", pch=20 , co
 Column {data-width=450}
 -------------------------------------
 
-### Probability of Sales per Season 
+### There is equal probability of making sales in Winter and Summer 
 
 ```{r}
 ## Probability of sales per season
@@ -512,16 +515,21 @@ ggplot(NEtable, aes(x="", y=Prob, fill=SPS)) +
 
 ```
 
-### Top 10 Products Sold
+### The two variations of lunch boxes are in high demand
 
 ```{r}
 NEdf_order <- x2 %>%
             arrange(desc(Quantity))
+
 NEdf_order = NEdf_order[,3:4]
+NEdf_order = NEdf_order %>%
+  group_by(Description) %>%
+  summarise(Quantity = sum(Quantity)) %>%
+  arrange(desc(Quantity))
 NEdf_order = NEdf_order[1:10,]
 NEdf_order$type = c(1:10)
 NEdf_order$type = as.factor(NEdf_order$type)
- 
+
 NEdf_order %>%
 arrange(desc(Quantity)) %>%
     slice(1:10) %>%
@@ -536,14 +544,14 @@ Ireland {data-icon="fa-area-chart"}
 Column {data-width=450}
 -------------------------------------
 
-### Quantity of Goods Sold
+### Total goods sold in Autumn was higher than in Winter and Spring combined
 ```{r}
 
 IRtmp <- x3 %>% filter(!(seasons=="")) %>% group_by(seasons) %>% tally() %>% mutate(Percent = n/sum(n))
-IRtmp$colors <- c("#d35400", "#2980b9", "#2ecc71","#ffd700")
+IRtmp$colors <- c("#d35400", "#2ecc71","#ffd700", "#2980b9")
 IRtmp <- arrange(IRtmp,desc(Percent))
 highchart() %>%
-  hc_xAxis(categories = c("Autumn", "Winter", "Summer","Spring")) %>%
+  hc_xAxis(categories = c("Autumn", "Summer", "Spring","Winter")) %>%
   hc_yAxis(title=list(text='Percentage')) %>%
   hc_chart(inverted = TRUE)%>%
   hc_add_series(IRtmp, "bar", hcaes(x = seasons, y = Percent, color=colors)) %>% 
@@ -552,7 +560,7 @@ highchart() %>%
 
 ```
 
-### Rating
+### Average User Rating was 4.2/5
 
 ```{r}
 ## Average sentiment
@@ -562,7 +570,7 @@ gg.gauge(84,breaks=c(0,20,40,60,80,100))
 
 ```
 
-### Number of Customers per Season by Sales 
+### Customers made higher purchases between 10am and 10:30am than any other hour of the day   
     
 ```{r}
 
@@ -633,7 +641,7 @@ legend(x=0.7, y=1, legend = rownames(NEmonet1[-c(1,2),]), bty = "n", pch=20 , co
 Column {data-width=450}
 -------------------------------------
 
-### Probability of Sales per Season 
+### There is less than 30% chance of making sales in Summer 
 
 ```{r}
 ## Probability of sales per season
@@ -645,22 +653,30 @@ ggplot(IRtable, aes(x="", y=Prob, fill=SPS)) +
 
 ```
 
-### Top 10 Products Sold
+### About 42% of the top 10 products sold were cake related 
 
 ```{r}
 ## Top 10 products sold
 IRdf_order <- x3 %>%
             arrange(desc(Quantity))
+
+sum(IRdf_order$Quantity)
+
 IRdf_order = IRdf_order[,3:4]
+IRdf_order = IRdf_order %>%
+  group_by(Description) %>%
+  summarise(Quantity = sum(Quantity)) %>%
+  arrange(desc(Quantity))
 IRdf_order = IRdf_order[1:10,]
 IRdf_order$type = c(1:10)
 IRdf_order$type = as.factor(IRdf_order$type)
- 
+
 IRdf_order %>%
 arrange(desc(Quantity)) %>%
     slice(1:10) %>%
     ggplot(., aes(x=type, y=Quantity, fill = Description))+
               geom_bar(stat='identity')
+
 
 ```
 
@@ -670,7 +686,7 @@ RFM Analysis_1 {data-orientation=rows data-icon="fa-bar-chart"}
 
 ## Row 1 {data-height=300}  
 
-### Top 7 Customers
+### UK has the most customers in quantity and quality 
 ```{r}
 #segment by country
 library(reshape2)
@@ -690,7 +706,7 @@ kable(head(df_SBC),row.names = FALSE)
 
 ## Row 2 {data-height=300}
 
-### Bottom 6 customers
+### There is only one loyal customer in the USA
 ```{r}
 kable(tail (df_SBC),row.names = FALSE)
 ```
@@ -701,7 +717,7 @@ RFM Analysis_2 {data-orientation=rows data-icon="fa-bar-chart"}
 Column {data-width=450}
 -------------------------------------
 
-### Number of Customers per Segment
+### 33% of the total customers often spend big money but not recently
 
 ```{r}
 df_TNC = SBC %>%
@@ -723,7 +739,7 @@ highchart() %>%
 
 ```
 
-### Cluster Plot
+### There is a visible buying pattern among the customers
 
 ```{r}
 library(cluster)    # clustering algorithms
@@ -737,7 +753,7 @@ fviz_cluster(clusters,ClusterA)
 
 ```
 
-### Cluster Interpretation
+### There are 5 high value customers that spent an average of about $1.1M  
 ```{r}
 ClusterA1 = as.data.frame(ClusterA[clusters$cluster == 1,])
 ClusterA2 = as.data.frame(ClusterA[clusters$cluster == 2,])
@@ -776,7 +792,7 @@ Forecasting {data-orientation=rows data-icon="fa-bar-chart"}
 =====================================
 
 ## Row 1 {data-height=500}
-### Three months Forecast 
+### Sales is predicted to grow in Q1-2012, all other factors unchanged
 ```{r}
 library(prophet)
 library(shiny)
