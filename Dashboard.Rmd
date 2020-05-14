@@ -731,6 +731,7 @@ library(factoextra)
 library(tidyverse)
 
 ClusterA = df_RFM[,1:4]
+set.seed(200)
 clusters <- kmeans(ClusterA, 3, nstart = 10) 
 fviz_cluster(clusters,ClusterA)
 
@@ -755,8 +756,8 @@ ClusterA3_I = ClusterA3%>%
   
 #put together in a table
 ClusterA_I = rbind(ClusterA1_I,ClusterA2_I,ClusterA3_I)
- ClusterA_I$Int_Clust = c("Low_Value","Medium_Value","High_Value") 
-ClusterA_I$colors <- c("#d35400", "#2980b9", "#2ecc71")
+ ClusterA_I$Int_Clust = c("Medium_Value","Low_Value","High_Value") 
+ClusterA_I$colors <- c("#d35400","#008000","#0000FF")
 ClusterA_I <- arrange(ClusterA_I,desc(Customers))
 library(highcharter)
 highchart() %>%
