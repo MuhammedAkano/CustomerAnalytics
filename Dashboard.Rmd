@@ -781,7 +781,7 @@ library(prophet)
 library(shiny)
 library(plotly)
 
-df = x1[,c("InvoiceDate","Cost")]   # A data frame with columns ds & y (datetimes & metrics)
+df = x1[,c("InvoiceDate","Cost")]   
 colnames(df) = c("ds","y")
 
 df$ds = as.Date(df$ds)
@@ -792,10 +792,10 @@ df = df %>%
 # Create a prophet object
 m <- prophet(df, daily.seasonality = TRUE) 
 
-# Extend dataframe 100 days into the future
-future <- make_future_dataframe(m, periods = 365)
+# Extend dataframe 120 days into the future
+future <- make_future_dataframe(m, periods = 120)
 
-# Generate forecast for next 100 days
+# Generate forecast for next 120 days
 forecast <- predict(m, future)
 
 #plot(m,forecast,xlab = "Date", ylab ="Sales")
